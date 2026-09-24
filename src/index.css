@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Oxanium:wght@400;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Share Tech Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Base Terminal Settings */
+body {
+  font-family: var(--font-mono);
+  background-color: #090d10;
+  color: #94a3b8;
+}
+
+/* =========================================================================
+   PROJECT THEME TYPOGRAPHY & SCHEME DEFINITIONS
+   Each Theme is an Operational Project Page with Distinct Fonts & Stylings
+   ========================================================================= */
+
+/* PROJECT 01: NIGHTFLY (Orbital Telemetry & Vector Interception) */
+.theme-font-nightfly {
+  font-family: 'Share Tech Mono', 'JetBrains Mono', monospace;
+  letter-spacing: 0.02em;
+}
+.theme-btn-nightfly {
+  border-radius: 4px;
+  border-width: 1px;
+  border-color: rgba(5, 255, 161, 0.35);
+  background: rgba(5, 255, 161, 0.08);
+  color: #05ffa1;
+  transition: all 0.15s ease-in-out;
+}
+.theme-btn-nightfly:hover {
+  border-color: #05ffa1;
+  background: rgba(5, 255, 161, 0.18);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(5, 255, 161, 0.35);
+}
+
+/* PROJECT 02: THE M.I.R.E. (Sub-surface Biochemical & SCADA Log) */
+.theme-font-mire {
+  font-family: 'VT323', monospace;
+  letter-spacing: 0.06em;
+  font-size: 1.08rem;
+}
+.theme-btn-mire {
+  border-radius: 0px;
+  border-width: 2px;
+  border-color: rgba(245, 158, 11, 0.6);
+  background: rgba(16, 12, 8, 0.85);
+  color: #ffb000;
+  box-shadow: 2px 2px 0px rgba(180, 83, 9, 0.4);
+  transition: all 0.15s ease-in-out;
+  text-transform: uppercase;
+}
+.theme-btn-mire:hover {
+  border-color: #ffb000;
+  background: rgba(255, 176, 0, 0.2);
+  color: #ffffff;
+  box-shadow: 2px 2px 8px rgba(255, 176, 0, 0.45);
+}
+
+/* PROJECT 03: NEPHILA (Synthetic Neural Anomaly & Darknet SIGINT) */
+.theme-font-nephila {
+  font-family: 'Space Grotesk', 'JetBrains Mono', sans-serif;
+  letter-spacing: 0.025em;
+}
+.theme-btn-nephila {
+  border-radius: 9999px; /* Smooth pill capsule */
+  border-width: 1px;
+  border-color: rgba(192, 132, 252, 0.4);
+  background: rgba(10, 7, 20, 0.7);
+  color: #c084fc;
+  transition: all 0.15s ease-in-out;
+}
+.theme-btn-nephila:hover {
+  border-color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.25);
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(192, 132, 252, 0.45);
+}
+
+/* PROJECT 04: THE SEPULCHRE (Black-Site Cold Crypt & Redacted Dossier) */
+.theme-font-sepulchre {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  letter-spacing: -0.01em;
+}
+.theme-btn-sepulchre {
+  border-radius: 0px; /* Stark brutalist square */
+  border-width: 1px;
+  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  text-transform: uppercase;
+  font-weight: 700;
+  transition: all 0.12s ease-in-out;
+}
+.theme-btn-sepulchre:hover {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+}
+
+/* PROJECT 05: SEPULCHRAL{NX} (Critical Red-Alert Matrix & Code Drift) */
+.theme-font-sepulchral_nx {
+  font-family: 'Oxanium', 'Share Tech Mono', monospace;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.theme-btn-sepulchral_nx {
+  border-radius: 3px;
+  border-width: 1px;
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(20, 10, 10, 0.85);
+  color: #ef4444;
+  text-transform: uppercase;
+  font-weight: 800;
+  transition: all 0.15s ease-in-out;
+}
+.theme-btn-sepulchral_nx:hover {
+  border-color: #ff4d4d;
+  background: rgba(239, 68, 68, 0.25);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.6);
+}
+
+/* Rounded arc notches matching the image curves rule */
+.squared-arc {
+  border-radius: 6px;
+}
+
+/* Custom glow effects for headers and widgets */
+.neon-glow-text {
+  text-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+}
+
+.pixel-grid-pattern {
+  background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px);
+  background-size: 10px 10px;
+}
+
+/* Keyframe animations for cyber wire pulse and dashed motion */
+@keyframes wireDashFlow {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes wireDottedFlow {
+  from {
+    stroke-dashoffset: 32;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes wireSolidBlink {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 6px currentColor);
+    opacity: 0.9;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 18px currentColor);
+    opacity: 1;
+  }
+}
+
+.wire-dash-animated {
+  animation: wireDashFlow 1.2s linear infinite;
+}
+
+.wire-dotted-animated {
+  animation: wireDottedFlow 1.4s linear infinite;
+}
+
+.wire-solid-blinking {
+  animation: wireSolidBlink 1.8s ease-in-out infinite;
+}
+
+@keyframes borderBloomPulse {
+  0%, 100% {
+    opacity: 0.94;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.bloom-pulse-active {
+  animation: borderBloomPulse 2.5s ease-in-out infinite;
+}
