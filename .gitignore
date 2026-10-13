@@ -1,7 +1,15 @@
 node_modules/
 build/
 dist/
+release/
+release-*/
+*.exe
+*.zip
 coverage/
+playwright-report/
+test-results/
+test-results-desktop/
+blob-report/
 .DS_Store
 *.log
 .env*

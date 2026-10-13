@@ -47,7 +47,7 @@ export interface ThemePalette {
   headerTag: string;
 }
 
-export const THEME_PALETTES: Record<TerminalTheme, ThemePalette> = {
+const BASE_PALETTES: Record<Exclude<TerminalTheme, 'ghostline' | 'ember' | 'deepfield' | 'afterglow' | 'verdigris'>, ThemePalette> = {
   nightfly: {
     id: 'nightfly',
     projectId: 'PROJECT_01',
@@ -203,6 +203,77 @@ export const THEME_PALETTES: Record<TerminalTheme, ThemePalette> = {
     activeBadge: 'DEFCON 1 // ZERO-DAY',
     headerTag: 'TACTICAL COMMAND'
   }
+};
+
+// Pages 6–10 use the established layout families with their own accent, atmosphere,
+// typography and project identity. The spread keeps every palette field explicit at runtime.
+export const THEME_PALETTES: Record<TerminalTheme, ThemePalette> = {
+  ...BASE_PALETTES,
+  ghostline: {
+    ...BASE_PALETTES.nephila, id: 'ghostline', projectId: 'PROJECT_06',
+    projectCode: 'PRJ-06: GHOSTLINE', projectTitle: 'GHOSTLINE SIGNAL DESK',
+    subtitle: 'SPECTRAL COMMS & SIGNAL TRACING', classification: 'SIGNAL // PAGE-06',
+    mission: 'Independent signal-tracing workspace.', fontClass: 'theme-font-ghostline',
+    btnClass: 'theme-btn-ghostline', primary: '#22d3ee', accent: '#67e8f9',
+    text: 'text-cyan-300', border: 'border-cyan-500/30', borderActive: 'border-cyan-300',
+    activeToolBtnStyle: 'bg-cyan-400 text-black font-bold shadow-[0_0_12px_rgba(34,211,238,0.5)]',
+    accentBadgeBg: 'bg-cyan-950/70 border-cyan-700 text-cyan-300',
+    glow: 'rgba(34,211,238,.45)', glowLight: 'rgba(34,211,238,.15)', bg: '#061218',
+    radialGradient: 'radial-gradient(circle,rgba(34,211,238,.09),#061218 90%)',
+    reticleGlyph: '◎', activeBadge: 'SIGNAL // LIVE', headerTag: 'GHOSTLINE',
+  },
+  ember: {
+    ...BASE_PALETTES.mire, id: 'ember', projectId: 'PROJECT_07',
+    projectCode: 'PRJ-07: EMBER', projectTitle: 'EMBER FIELD LOG',
+    subtitle: 'FIELD NOTES & INCIDENT TRACKING', classification: 'FIELD // PAGE-07',
+    mission: 'Independent field incident workspace.', fontClass: 'theme-font-ember',
+    btnClass: 'theme-btn-ember', primary: '#fb923c', accent: '#fdba74',
+    text: 'text-orange-300', border: 'border-orange-500/30', borderActive: 'border-orange-300',
+    activeToolBtnStyle: 'bg-orange-400 text-black font-bold shadow-[0_0_12px_rgba(251,146,60,0.5)]',
+    accentBadgeBg: 'bg-orange-950/70 border-orange-700 text-orange-300',
+    glow: 'rgba(251,146,60,.45)', glowLight: 'rgba(251,146,60,.15)', bg: '#160d08',
+    radialGradient: 'radial-gradient(circle,rgba(251,146,60,.09),#160d08 90%)',
+    reticleGlyph: '◇', activeBadge: 'FIELD // OPEN', headerTag: 'EMBER LOG',
+  },
+  deepfield: {
+    ...BASE_PALETTES.nightfly, id: 'deepfield', projectId: 'PROJECT_08',
+    projectCode: 'PRJ-08: DEEPFIELD', projectTitle: 'DEEPFIELD OBSERVATORY',
+    subtitle: 'WIDE-AREA INTELLIGENCE BOARD', classification: 'OBSERVATION // PAGE-08',
+    mission: 'Independent wide-area research workspace.', fontClass: 'theme-font-deepfield',
+    btnClass: 'theme-btn-deepfield', primary: '#60a5fa', accent: '#93c5fd',
+    text: 'text-blue-300', border: 'border-blue-500/30', borderActive: 'border-blue-300',
+    activeToolBtnStyle: 'bg-blue-400 text-black font-bold shadow-[0_0_12px_rgba(96,165,250,0.5)]',
+    accentBadgeBg: 'bg-blue-950/70 border-blue-700 text-blue-300',
+    glow: 'rgba(96,165,250,.45)', glowLight: 'rgba(96,165,250,.15)', bg: '#08101c',
+    radialGradient: 'radial-gradient(circle,rgba(96,165,250,.09),#08101c 90%)',
+    reticleGlyph: '⊕', activeBadge: 'OBSERVATION', headerTag: 'DEEPFIELD',
+  },
+  afterglow: {
+    ...BASE_PALETTES.nephila, id: 'afterglow', projectId: 'PROJECT_09',
+    projectCode: 'PRJ-09: AFTERGLOW', projectTitle: 'AFTERGLOW ANALYSIS',
+    subtitle: 'PATTERN & AFTERMATH STUDIES', classification: 'ANALYSIS // PAGE-09',
+    mission: 'Independent pattern analysis workspace.', fontClass: 'theme-font-afterglow',
+    btnClass: 'theme-btn-afterglow', primary: '#f472b6', accent: '#f9a8d4',
+    text: 'text-pink-300', border: 'border-pink-500/30', borderActive: 'border-pink-300',
+    activeToolBtnStyle: 'bg-pink-400 text-black font-bold shadow-[0_0_12px_rgba(244,114,182,0.5)]',
+    accentBadgeBg: 'bg-pink-950/70 border-pink-700 text-pink-300',
+    glow: 'rgba(244,114,182,.45)', glowLight: 'rgba(244,114,182,.15)', bg: '#160b17',
+    radialGradient: 'radial-gradient(circle,rgba(244,114,182,.09),#160b17 90%)',
+    reticleGlyph: '✧', activeBadge: 'ANALYSIS', headerTag: 'AFTERGLOW',
+  },
+  verdigris: {
+    ...BASE_PALETTES.sepulchre, id: 'verdigris', projectId: 'PROJECT_10',
+    projectCode: 'PRJ-10: VERDIGRIS', projectTitle: 'VERDIGRIS ARCHIVE',
+    subtitle: 'LONG-FORM RESEARCH & ARCHIVE', classification: 'ARCHIVE // PAGE-10',
+    mission: 'Independent long-form archive workspace.', fontClass: 'theme-font-verdigris',
+    btnClass: 'theme-btn-verdigris', primary: '#a3e635', accent: '#bef264',
+    text: 'text-lime-300', border: 'border-lime-500/30', borderActive: 'border-lime-300',
+    activeToolBtnStyle: 'bg-lime-400 text-black font-bold shadow-[0_0_12px_rgba(163,230,53,0.5)]',
+    accentBadgeBg: 'bg-lime-950/70 border-lime-700 text-lime-300',
+    glow: 'rgba(163,230,53,.4)', glowLight: 'rgba(163,230,53,.14)', bg: '#0e1308',
+    radialGradient: 'radial-gradient(circle,rgba(163,230,53,.08),#0e1308 90%)',
+    reticleGlyph: '⊞', activeBadge: 'ARCHIVE', headerTag: 'VERDIGRIS',
+  },
 };
 
 export const TerminalOverlay: React.FC<TerminalOverlayProps> = ({

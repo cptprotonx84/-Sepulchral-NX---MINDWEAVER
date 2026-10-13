@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type TerminalTheme = 'nightfly' | 'mire' | 'nephila' | 'sepulchre' | 'sepulchral_nx';
+export type TerminalTheme = 'nightfly' | 'mire' | 'nephila' | 'sepulchre' | 'sepulchral_nx' | 'ghostline' | 'ember' | 'deepfield' | 'afterglow' | 'verdigris';
 
 export type EventStatus = 'lead' | 'unverified' | 'confirmed' | 'critical' | 'redacted';
 
@@ -35,6 +35,7 @@ export interface TimelineEvent {
   sourceExcerpt?: string; // Preserved local original source text / excerpt
   importBatchId?: string; // ID of the local AI import batch
   categoryType?: AutofillCategory; // Event classification type
+  imageId?: string; // Optional local image asset; pixels are stored outside browser-profile JSON.
 }
 
 export type AutofillCategory = 'EVENT' | 'DETECTION' | 'RESPONSE' | 'DISCLOSURE' | 'POLICY' | 'HYPOTHESIS';
@@ -117,6 +118,16 @@ export interface SaveState {
   thumbnailSummary?: string;
 }
 
+export interface FloatingTimeTag {
+  id: string;
+  kind: 'timestamp' | 'range';
+  text: string;
+  color: string;
+  x: number; // Board-world pixels, independent of grid cells and event records.
+  y: number;
+  fontSizePx?: number; // Fixed on-screen size; optional for tags saved before resizing existed.
+}
+
 export interface CaseFile {
   id: string;
   title: string;
@@ -126,6 +137,7 @@ export interface CaseFile {
   folderId?: string; // Project folder assignment
   events: TimelineEvent[];
   connections: EventConnection[];
+  timeTags?: FloatingTimeTag[]; // Presentation-only labels; never event timestamps.
 }
 
 export interface ColorGradingConfig {

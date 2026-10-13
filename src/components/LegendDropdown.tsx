@@ -126,7 +126,7 @@ export const LegendDropdown: React.FC<LegendDropdownProps> = ({ theme }) => {
 
       {isOpen && (
         <div 
-          className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#0c1015] border rounded-lg shadow-2xl z-50 p-4 font-mono text-xs text-slate-300 space-y-4 animate-fade-in"
+          className="absolute left-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-10rem)] overflow-y-auto overscroll-contain bg-[#0c1015] border rounded-lg shadow-2xl z-50 p-4 font-mono text-xs text-slate-300 space-y-4 animate-fade-in"
           style={{ 
             borderColor: palette.primary,
             boxShadow: `0 15px 40px rgba(0,0,0,0.95), 0 0 20px ${palette.primary}20` 
@@ -154,7 +154,7 @@ export const LegendDropdown: React.FC<LegendDropdownProps> = ({ theme }) => {
               <Layers className="w-3 h-3 mr-1 text-emerald-400" />
               EVENT NODE COLORS // PURPOSE & MEANING:
             </div>
-            <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
+            <div className="space-y-2.5 pr-1">
               {COLOR_LEGEND_DATA.map((item) => (
                 <div key={item.color} className="flex items-start space-x-2.5 p-1.5 rounded hover:bg-slate-900/60 border border-transparent hover:border-slate-800 transition-colors">
                   <div 

@@ -16,6 +16,7 @@ import {
   getNumberKeyColor
 } from '../types';
 import { THEME_PALETTES } from './TerminalOverlay';
+import { PROJECT_THEMES } from '../utils/projectPages';
 import { renderEventIcon } from './iconRegistry';
 import { LegendDropdown } from './LegendDropdown';
 import { soundEngine } from './SoundEngine';
@@ -48,13 +49,15 @@ import {
 
 interface TimelineToolbarProps {
   theme: TerminalTheme;
-  setTheme: (t: TerminalTheme) => void;
+  activePageIndex: number;
+  pageTitles: string[];
+  onSelectPage: (index: number) => void;
   gridConfig: GridConfig;
   setGridConfig: React.Dispatch<React.SetStateAction<GridConfig>>;
   colorConfig: ColorGradingConfig;
   setColorConfig: React.Dispatch<React.SetStateAction<ColorGradingConfig>>;
   acousticFeedback: boolean;
-  setAcousticFeedback: (v: boolean) => void;
+  onToggleSound: () => void;
   activeTool: ToolMode;
   setActiveTool: (tool: ToolMode) => void;
   selectedIconToPlace: string;
@@ -81,6 +84,8 @@ interface TimelineToolbarProps {
   onRedo: () => void;
   onExportCase: () => void;
   onImportCase: (file: File) => void;
+  onExportWorkspace: () => void;
+  onImportWorkspace: (file: File) => void;
   saveStatesCount?: number;
   onOpenSaveStatesModal: () => void;
   folders: ProjectFolder[];
@@ -95,13 +100,15 @@ interface TimelineToolbarProps {
 
 export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
   theme,
-  setTheme,
+  activePageIndex,
+  pageTitles,
+  onSelectPage,
   gridConfig,
   setGridConfig,
   colorConfig,
   setColorConfig,
   acousticFeedback,
-  setAcousticFeedback,
+  onToggleSound,
   activeTool,
   setActiveTool,
   selectedIconToPlace,
@@ -128,6 +135,8 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
   onRedo,
   onExportCase,
   onImportCase,
+  onExportWorkspace,
+  onImportWorkspace,
   saveStatesCount = 0,
   onOpenSaveStatesModal,
   folders,
@@ -148,16 +157,6 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
   const [showCaseMenu, setShowCaseMenu] = useState(false);
   const [showBloomMenu, setShowBloomMenu] = useState(false);
 
-  const toggleSoundHum = () => {
-    const val = !acousticFeedback;
-    setAcousticFeedback(val);
-    soundEngine.toggleAmbientHum(val);
-    if (val) {
-      soundEngine.playSwitch();
-      soundEngine.playSweep(true);
-    }
-  };
-
   const handleToolChange = (tool: ToolMode) => {
     soundEngine.playClick();
     setActiveTool(tool);
@@ -170,10 +169,18 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
   };
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const workspaceInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       onImportCase(e.target.files[0]);
+    }
+  };
+
+  const handleWorkspaceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onImportWorkspace(e.target.files[0]);
+      e.target.value = '';
     }
   };
 
@@ -571,6 +578,29 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
                   <Upload className="w-3.5 h-3.5 text-slate-400" />
                   <span>Import Case (JSON)</span>
                 </button>
+                <div className="border-t border-slate-900 my-1" />
+                <button
+                  onClick={() => {
+                    soundEngine.playClick();
+                    onExportWorkspace();
+                    setShowCaseMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 rounded hover:bg-emerald-950/40 text-emerald-300 hover:text-emerald-200 text-[11px] transition-colors cursor-pointer flex items-center space-x-2"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Export Full Workspace Backup</span>
+                </button>
+                <button
+                  onClick={() => {
+                    soundEngine.playClick();
+                    workspaceInputRef.current?.click();
+                    setShowCaseMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 rounded hover:bg-emerald-950/40 text-emerald-300 hover:text-emerald-200 text-[11px] transition-colors cursor-pointer flex items-center space-x-2"
+                >
+                  <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Restore Full Workspace Backup</span>
+                </button>
               </div>
             )}
           </div>
@@ -579,6 +609,13 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
             type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
+            accept=".json"
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={workspaceInputRef}
+            onChange={handleWorkspaceUpload}
             accept=".json"
             className="hidden"
           />
@@ -646,7 +683,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
                       PROJECT PAGES // OPERATIONAL SCHEMES
                     </span>
                     <span className="text-[9px] text-slate-500">
-                      Each scheme switches interface typography, button geometries & dossier layout
+                      Ten independent projects. Alt+1–9 and Alt+0 switch pages.
                     </span>
                   </div>
                   <button 
@@ -657,19 +694,19 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
                   </button>
                 </div>
 
-                {/* 5 Project Pages List with Alt+1..5 Quick Commands */}
-                <div className="space-y-2">
-                  {(['nightfly', 'mire', 'nephila', 'sepulchre', 'sepulchral_nx'] as TerminalTheme[]).map((t, idx) => {
+                {/* Ten independent project pages, each with its own appearance and data. */}
+                <div className="space-y-2 max-h-[min(60vh,620px)] overflow-y-auto pr-1">
+                  {PROJECT_THEMES.map((t, idx) => {
                     const p = THEME_PALETTES[t];
-                    const isSelected = theme === t;
-                    const altCmd = `Alt+${idx + 1}`;
+                    const isSelected = activePageIndex === idx;
+                    const altCmd = `Alt+${idx === 9 ? 0 : idx + 1}`;
 
                     return (
                       <button
                         key={t}
                         onClick={() => {
                           soundEngine.playSwitch();
-                          setTheme(t);
+                          onSelectPage(idx);
                           setShowThemePicker(false);
                         }}
                         className={`w-full text-left p-2.5 rounded-lg border transition-all cursor-pointer flex flex-col space-y-1.5 ${
@@ -713,7 +750,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
 
                         {/* Mission & Classification */}
                         <div className="flex items-center justify-between text-[10px] text-slate-400">
-                          <span className="truncate pr-2">{p.subtitle}</span>
+                          <span className="truncate pr-2">{pageTitles[idx] || p.subtitle}</span>
                           <span className="text-[9px] text-slate-500 shrink-0 font-mono">{p.classification.split('//')[0].trim()}</span>
                         </div>
 
@@ -776,13 +813,13 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
 
           {/* Sound Toggle */}
           <button
-            onClick={toggleSoundHum}
+            onClick={onToggleSound}
             className={`px-2 py-1 rounded border transition-colors flex items-center space-x-1.5 cursor-pointer ${
               acousticFeedback 
                 ? 'bg-black border-emerald-500 text-emerald-400' 
                 : 'bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-300'
             }`}
-            title="Toggle Acoustic Feedback & Reactor Hum"
+            title="Toggle all sounds and reactor hum"
           >
             {acousticFeedback ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           </button>

@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TimelineEvent, EventConnection, EventStatus, TerminalTheme, EvidenceType, ProjectFolder, NUMBER_KEY_COLORS } from '../types';
 import { AVAILABLE_ICONS, renderEventIcon } from './iconRegistry';
 import { THEME_PALETTES } from './TerminalOverlay';
 import { soundEngine } from './SoundEngine';
+import { saveNodeImage } from '../services/imageAssets';
+import { NodeImage } from './NodeImage';
 import { 
   X, 
   Trash2, 
@@ -68,6 +70,8 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   onDeleteConnection
 }) => {
   const palette = THEME_PALETTES[theme];
+  const latestEventRef = useRef(event);
+  latestEventRef.current = event;
 
   // Editable form state
   const [title, setTitle] = useState(event.title);
@@ -81,6 +85,8 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const [folderId, setFolderId] = useState(event.folderId || '');
   const [newTag, setNewTag] = useState('');
   const [tags, setTags] = useState<string[]>(event.tags || []);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState('');
   
   // Icon selector tab/popover
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -103,7 +109,22 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
     setFolderId(event.folderId || '');
     setTags(event.tags || []);
     setShowIconPicker(false);
+    setImageError('');
   }, [event.id]);
+
+  const handleImageFile = async (file?: File) => {
+    if (!file) return;
+    setImageBusy(true);
+    setImageError('');
+    try {
+      const imageId = await saveNodeImage(file);
+      onUpdate({ ...latestEventRef.current, imageId });
+    } catch (error) {
+      setImageError(error instanceof Error ? error.message : 'The image could not be attached.');
+    } finally {
+      setImageBusy(false);
+    }
+  };
 
   // Handle escape key
   useEffect(() => {
@@ -491,6 +512,18 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <span>TIP: Click any placeable icon on the board to review and type notes at any time.</span>
               <span className="text-emerald-500/80 font-bold">READY TO CONNECT</span>
             </div>
+          </div>
+
+          {/* LOCAL SOURCE DOSSIER / ORIGINAL PASTED TEXT (Preserved locally) */}
+          <div className="bg-slate-950/80 p-4 rounded border border-slate-800 space-y-2" data-testid="node-image-section">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">NODE IMAGE // OPTIONAL</label>
+              {event.imageId && <button type="button" onClick={() => triggerUpdate({ imageId: undefined })} className="text-rose-400 hover:text-rose-300">Remove from node</button>}
+            </div>
+            {event.imageId && <NodeImage imageId={event.imageId} className="max-h-72 max-w-full rounded border border-slate-700 object-contain bg-black" />}
+            <input aria-label="Attach image to node" type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={imageBusy} onChange={e => { void handleImageFile(e.target.files?.[0]); e.target.value = ''; }} className="block w-full text-xs text-slate-300 file:mr-3 file:rounded file:border file:border-emerald-500/40 file:bg-emerald-950/50 file:px-3 file:py-1 file:text-emerald-300" />
+            <p className="text-[10px] text-slate-500">One image per node, up to 10 MB. Stored locally and included in case and workspace exports. Removing it here does not delete the original file.</p>
+            {imageError && <p role="alert" className="text-rose-400">{imageError}</p>}
           </div>
 
           {/* LOCAL SOURCE DOSSIER / ORIGINAL PASTED TEXT (Preserved locally) */}

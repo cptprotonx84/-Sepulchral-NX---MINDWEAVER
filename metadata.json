@@ -3,6 +3,7 @@
   "description": "A futuristic sci-fi terminal-styled desktop UI timeline connection board, layout designer, and modular UI event clusters featuring real-time grid adjustments, custom icon integration, placeable line connectors for events, and advanced color-grading controls. think of it as a detective\u0027s story board for connecting events. ",
   "requestFramePermissions": [],
   "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+    "LOCAL_BROWSER_STORAGE",
+    "LOCAL_OLLAMA_OPTIONAL"
   ]
 }

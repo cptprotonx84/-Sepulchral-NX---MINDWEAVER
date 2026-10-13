@@ -15,6 +15,7 @@ import {
   ToolMode,
   SaveState,
   ProjectFolder,
+  FloatingTimeTag,
   getNumberKeyColor
 } from './types';
 import { TerminalOverlay, THEME_PALETTES } from './components/TerminalOverlay';
@@ -26,8 +27,12 @@ import { SaveStatesModal } from './components/SaveStatesModal';
 import { ProjectFoldersModal } from './components/ProjectFoldersModal';
 import { ClearBoardModal } from './components/ClearBoardModal';
 import { AiAutofillPanel } from './components/AiAutofillPanel';
+import { BoardIntelligencePanel } from './components/BoardIntelligencePanel';
 import { PRESET_CASE_SYNDICATE, BLANK_CASE } from './data/presetCases';
 import { soundEngine } from './components/SoundEngine';
+import { createWorkspaceBackup, parseWorkspaceBackup } from './utils/workspaceBackup';
+import { exportImageAssets, importImageAssets, ExportedImageAsset } from './services/imageAssets';
+import { ACTIVE_PAGE_STORAGE_KEY, loadActivePageIndex, loadProjectPages, PROJECT_THEMES, ProjectPageData, saveProjectPages } from './utils/projectPages';
 import { 
   Clock, 
   Layers, 
@@ -40,47 +45,15 @@ import {
   Save
 } from 'lucide-react';
 
-const STORAGE_KEY = 'sepulchral_nx_case_data_v3';
-const THEME_STORAGE_KEY = 'sepulchral_nx_theme';
-const SAVE_STATES_STORAGE_KEY = 'sepulchral_nx_save_states_v1';
-const FOLDERS_STORAGE_KEY = 'sepulchral_nx_project_folders_v1';
-const COLOR_CONFIG_STORAGE_KEY = 'sepulchral_nx_color_config_v1';
-const WHEEL_ZOOM_STORAGE_KEY = 'sepulchral_nx_wheel_zoom_v1';
-
-const DEFAULT_PROJECT_FOLDERS: ProjectFolder[] = [
-  {
-    id: 'fld_nightfall',
-    name: 'Operation Nightfall',
-    color: '#05ffa1',
-    description: 'Corporate infiltration & classified data exfiltration',
-    createdAt: '2026-09-24'
-  },
-  {
-    id: 'fld_syndicate',
-    name: 'Shadow Syndicate',
-    color: '#ffb000',
-    description: 'Illicit hardware implants & laundering relay nodes',
-    createdAt: '2026-09-24'
-  },
-  {
-    id: 'fld_coldcases',
-    name: 'Archive Nexus',
-    color: '#38bdf8',
-    description: 'Unsolved neural breaches and ghost signals',
-    createdAt: '2026-09-24'
-  }
-];
+const INITIAL_PAGES = loadProjectPages();
+const INITIAL_PAGE_INDEX = loadActivePageIndex();
+const imageIdsForCase = (file: CaseFile): string[] => file.events.flatMap(event => event.imageId ? [event.imageId] : []);
 
 export default function App() {
-  const [theme, setTheme] = useState<TerminalTheme>('nightfly');
+  const activePageIndex = INITIAL_PAGE_INDEX;
+  const pagesRef = useRef<ProjectPageData[]>(INITIAL_PAGES);
+  const theme = PROJECT_THEMES[activePageIndex];
   const [acousticFeedback, setAcousticFeedback] = useState<boolean>(false);
-
-  const handleSetTheme = useCallback((newTheme: TerminalTheme) => {
-    setTheme(newTheme);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-    } catch (e) {}
-  }, []);
 
   // Active Tool Mode (supports drag board navigation)
   const [activeTool, setActiveTool] = useState<ToolMode>('select');
@@ -91,13 +64,7 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Project Folders State
-  const [folders, setFolders] = useState<ProjectFolder[]>(() => {
-    try {
-      const saved = localStorage.getItem(FOLDERS_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_PROJECT_FOLDERS;
-  });
+  const [folders, setFolders] = useState<ProjectFolder[]>(INITIAL_PAGES[activePageIndex].folders);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [isProjectFoldersModalOpen, setIsProjectFoldersModalOpen] = useState<boolean>(false);
 
@@ -105,71 +72,16 @@ export default function App() {
   const [defaultEvidenceType, setDefaultEvidenceType] = useState<EvidenceType>('documented');
 
   // Grid Canvas Layout Configuration
-  const [gridConfig, setGridConfig] = useState<GridConfig>({
-    columns: 10,
-    rows: 6,
-    snapToGrid: true,
-    showGridLines: true,
-    showCoordinates: true,
-    opacity: 0.4
-  });
+  const [gridConfig, setGridConfig] = useState<GridConfig>(INITIAL_PAGES[activePageIndex].gridConfig);
 
   // Block Borders Bloom & CRT / Screen Atmosphere grading
-  const [colorConfig, setColorConfig] = useState<ColorGradingConfig>(() => {
-    try {
-      const saved = localStorage.getItem(COLOR_CONFIG_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      crtScanlines: true,
-      chromaticAberration: true,
-      vignette: true,
-      noiseLevel: 15,
-      bloomIntensity: 65,
-      bloomColor: 'auto',
-      bloomPulse: true,
-      blockBorderStyle: 'cyber'
-    };
-  });
+  const [colorConfig, setColorConfig] = useState<ColorGradingConfig>(INITIAL_PAGES[activePageIndex].colorConfig);
 
   // Main Case File Data (Events & Line Connectors)
-  const [caseFile, setCaseFile] = useState<CaseFile>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.events && parsed.connections) {
-          // Normalize legacy connections to have evidenceType
-          parsed.connections = parsed.connections.map((c: any) => ({
-            ...c,
-            evidenceType: c.evidenceType || (c.style === 'dashed' ? 'proposed' : 'documented')
-          }));
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load saved case', e);
-    }
-    return PRESET_CASE_SYNDICATE;
-  });
+  const [caseFile, setCaseFile] = useState<CaseFile>(INITIAL_PAGES[activePageIndex].caseFile);
 
   // Save States (Snapshot slots 1 to 5)
-  const [saveStates, setSaveStates] = useState<SaveState[]>(() => {
-    try {
-      const saved = localStorage.getItem(SAVE_STATES_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [
-      {
-        id: 'save_slot_1_init',
-        name: 'Operation Nightfall - Baseline',
-        slotNumber: 1,
-        timestamp: '2026-09-24 10:00:00 UTC',
-        caseFile: PRESET_CASE_SYNDICATE,
-        thumbnailSummary: 'Initial syndicate investigation snapshot'
-      }
-    ];
-  });
+  const [saveStates, setSaveStates] = useState<SaveState[]>(INITIAL_PAGES[activePageIndex].saveStates);
   const [isSaveStatesModalOpen, setIsSaveStatesModalOpen] = useState<boolean>(false);
 
   // Undo & Redo History Stacks
@@ -177,9 +89,10 @@ export default function App() {
   const [future, setFuture] = useState<CaseFile[]>([]);
   const [isClearBoardModalOpen, setIsClearBoardModalOpen] = useState<boolean>(false);
   const [isAiAutofillOpen, setIsAiAutofillOpen] = useState<boolean>(false);
+  const [isBoardIntelligenceOpen, setIsBoardIntelligenceOpen] = useState(false);
   const [lastImportedBatchId, setLastImportedBatchId] = useState<string | null>(null);
 
-  // Theme switch HUD toast notification for Alt+1..5 quick commands
+  // Project page switch HUD toast notification for Alt+1..0 quick commands
   const [themeToast, setThemeToast] = useState<{
     projectTitle: string;
     projectCode: string;
@@ -189,22 +102,10 @@ export default function App() {
   } | null>(null);
 
   // Mouse Wheel Zoom Toggle Option (remembers preference)
-  const [wheelZoomEnabled, setWheelZoomEnabled] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem(WHEEL_ZOOM_STORAGE_KEY);
-      if (saved !== null) return JSON.parse(saved);
-    } catch (e) {}
-    return true;
-  });
+  const [wheelZoomEnabled, setWheelZoomEnabled] = useState<boolean>(INITIAL_PAGES[activePageIndex].wheelZoomEnabled);
 
   const handleToggleWheelZoom = () => {
-    setWheelZoomEnabled(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem(WHEEL_ZOOM_STORAGE_KEY, JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+    setWheelZoomEnabled(prev => !prev);
   };
 
   // Synchronized refs for stable callbacks & global keyboard shortcuts
@@ -275,13 +176,14 @@ export default function App() {
     setSelectedConnectionForModal(prev => prev ? nextState.connections.find(c => c.id === prev.id) || null : null);
   }, []);
 
-  // Clear Board action (purges events & connections, preserves case metadata, pushes to history so undo works!)
+  // Clear Board action also removes presentation annotations; undo restores all three layers.
   const handleClearBoard = useCallback(() => {
     recordHistory();
     setCaseFile(prev => ({
       ...prev,
       events: [],
-      connections: []
+      connections: [],
+      timeTags: []
     }));
     soundEngine.playClear();
     setIsClearBoardModalOpen(false);
@@ -289,41 +191,54 @@ export default function App() {
     setSelectedConnectionForModal(null);
   }, [recordHistory]);
 
-  // Global Keyboard Shortcuts for Undo & Redo and Alt+1..5 Theme Quick Commands
+  const currentPageData = useCallback((): ProjectPageData => ({
+    caseFile, saveStates, folders, colorConfig, gridConfig, wheelZoomEnabled,
+  }), [caseFile, saveStates, folders, colorConfig, gridConfig, wheelZoomEnabled]);
+
+  const persistCurrentPage = useCallback((): boolean => {
+    try {
+      pagesRef.current[activePageIndex] = currentPageData();
+      saveProjectPages(pagesRef.current);
+      return true;
+    } catch (error) {
+      console.error('Mindweaver could not save this project page', error);
+      return false;
+    }
+  }, [activePageIndex, currentPageData]);
+
+  const switchProjectPage = useCallback((targetIndex: number) => {
+    if (targetIndex === activePageIndex || targetIndex < 0 || targetIndex > 9) return;
+    if (!persistCurrentPage()) {
+      window.alert('This project page could not be saved. Switching was cancelled to protect your work.');
+      return;
+    }
+    try {
+      localStorage.setItem(ACTIVE_PAGE_STORAGE_KEY, String(targetIndex));
+      soundEngine.playSwitch();
+      window.location.reload();
+    } catch {
+      window.alert('Mindweaver could not open the next project page. Your current page is still open.');
+    }
+  }, [activePageIndex, persistCurrentPage]);
+
+  // Global Keyboard Shortcuts for Undo & Redo and Alt+1..0 Project Pages
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept when user is typing into text fields or textareas
-      const activeEl = document.activeElement;
-      if (
-        activeEl && 
-        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || (activeEl as HTMLElement).isContentEditable)
-      ) {
+      // Alt+1 through Alt+9, then Alt+0 for page 10.
+      const pageNumber = /^[0-9]$/.test(e.key) ? (e.key === '0' ? 10 : Number(e.key)) : 0;
+      if (e.altKey && !e.ctrlKey && !e.metaKey && pageNumber > 0) {
+        e.preventDefault();
+        switchProjectPage(pageNumber - 1);
         return;
       }
 
-      // Alt+1 to Alt+5: Quick Commands for Each Project Page Theme
-      const THEME_HOTKEYS: Record<string, TerminalTheme> = {
-        '1': 'nightfly',
-        '2': 'mire',
-        '3': 'nephila',
-        '4': 'sepulchre',
-        '5': 'sepulchral_nx'
-      };
-
-      if (e.altKey && !e.ctrlKey && !e.metaKey && THEME_HOTKEYS[e.key]) {
-        e.preventDefault();
-        const targetTheme = THEME_HOTKEYS[e.key];
-        const p = THEME_PALETTES[targetTheme];
-        soundEngine.playSwitch();
-        handleSetTheme(targetTheme);
-        setThemeToast({
-          projectTitle: p.projectTitle,
-          projectCode: p.projectCode,
-          primary: p.primary,
-          reticleGlyph: p.reticleGlyph,
-          shortcut: `Alt+${e.key}`
-        });
-        setTimeout(() => setThemeToast(null), 2200);
+      // Keep editing shortcuts native in text fields, but page switching above
+      // remains available even when the project title or a tag editor has focus.
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || (activeEl as HTMLElement).isContentEditable)
+      ) {
         return;
       }
 
@@ -342,37 +257,10 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, handleSetTheme]);
+  }, [handleUndo, handleRedo, switchProjectPage]);
 
-  // Save to LocalStorage whenever case file changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(caseFile));
-    } catch (e) {
-      console.warn('Failed to save case file to localStorage', e);
-    }
-  }, [caseFile]);
-
-  // Save States to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(SAVE_STATES_STORAGE_KEY, JSON.stringify(saveStates));
-    } catch (e) {}
-  }, [saveStates]);
-
-  // Project Folders to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(FOLDERS_STORAGE_KEY, JSON.stringify(folders));
-    } catch (e) {}
-  }, [folders]);
-
-  // Color & Bloom Config to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(COLOR_CONFIG_STORAGE_KEY, JSON.stringify(colorConfig));
-    } catch (e) {}
-  }, [colorConfig]);
+  // Keep the active project current, including its grid and visual preferences.
+  useEffect(() => { persistCurrentPage(); }, [persistCurrentPage]);
 
   // Save State operations
   const handleSaveToSlot = (slotNumber: number, name: string) => {
@@ -428,26 +316,21 @@ export default function App() {
     setCaseFile(prev => ({ ...prev, folderId }));
   };
 
-  // Load saved theme
-  useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as TerminalTheme;
-      if (savedTheme && THEME_PALETTES[savedTheme]) {
-        setTheme(savedTheme);
-      }
-    } catch (e) {}
-  }, []);
-
   const palette = THEME_PALETTES[theme];
 
-  // Sound hum toggle
-  const toggleSoundHum = () => {
+  // Keep page-level and panel scrollbars synchronized with the active project theme.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--scrollbar-accent', palette.primary);
+  }, [palette.primary]);
+
+  // One master toggle controls both the ambient hum and every action cue.
+  const toggleSound = () => {
     const val = !acousticFeedback;
     setAcousticFeedback(val);
-    soundEngine.toggleAmbientHum(val);
+    soundEngine.setEnabled(val);
+    if (!val && 'speechSynthesis' in window) window.speechSynthesis.cancel();
     if (val) {
       soundEngine.playSwitch();
-      soundEngine.playSweep(true);
     }
   };
 
@@ -529,6 +412,26 @@ export default function App() {
       ...prev,
       events: prev.events.map(e => e.id === eventId ? { ...e, gridX: newGridX, gridY: newGridY } : e)
     }));
+  };
+
+  const handleAddTimeTag = (tag: FloatingTimeTag) => {
+    recordHistory();
+    setCaseFile(prev => ({...prev, timeTags: [...(prev.timeTags ?? []), tag]}));
+  };
+
+  const handleUpdateTimeTag = (id: string, changes: Partial<FloatingTimeTag>) => {
+    if (!(caseFile.timeTags ?? []).some(tag => tag.id === id)) return;
+    recordHistory();
+    setCaseFile(prev => ({
+      ...prev,
+      timeTags: (prev.timeTags ?? []).map(tag => tag.id === id ? {...tag, ...changes, id} : tag),
+    }));
+  };
+
+  const handleDeleteTimeTag = (id: string) => {
+    if (!(caseFile.timeTags ?? []).some(tag => tag.id === id)) return;
+    recordHistory();
+    setCaseFile(prev => ({...prev, timeTags: (prev.timeTags ?? []).filter(tag => tag.id !== id)}));
   };
 
   // Duplicate an event
@@ -651,23 +554,82 @@ export default function App() {
     soundEngine.playSwitch();
   };
 
-  const handleExportCase = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(caseFile, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `${caseFile.caseNumber.replace(/[^a-zA-Z0-9]/g, '_')}_timeline.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+  const downloadJson = (data: unknown, filename: string) => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
+  const handleExportCase = async () => {
+    try {
+      const imageAssets = await exportImageAssets(imageIdsForCase(caseFile));
+      downloadJson({ ...caseFile, imageAssets }, `${caseFile.caseNumber.replace(/[^a-zA-Z0-9]/g, '_')}_timeline.json`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Case export failed.');
+    }
+  };
+
+  const handleExportWorkspace = async () => {
+    if (!persistCurrentPage()) {
+      window.alert('The active project could not be saved, so the workspace backup was cancelled.');
+      return;
+    }
+    try {
+      const ids = pagesRef.current.flatMap(page => [
+        ...imageIdsForCase(page.caseFile),
+        ...page.saveStates.flatMap(slot => imageIdsForCase(slot.caseFile)),
+      ]);
+      const backup = createWorkspaceBackup({
+        activePage: activePageIndex,
+        pages: pagesRef.current,
+        imageAssets: await exportImageAssets(ids),
+      });
+      downloadJson(backup, `Mindweaver_workspace_backup_${new Date().toISOString().substring(0, 10)}.json`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Workspace backup failed.');
+    }
+  };
+
+  const handleImportWorkspace = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const backup = parseWorkspaceBackup(event.target?.result as string);
+        if (!window.confirm('Restore this Mindweaver backup? It will replace all ten local project pages, their save slots, folders, and visual settings. Older one-page backups restore into page 1.')) {
+          return;
+        }
+        await importImageAssets(backup.data.imageAssets);
+        saveProjectPages(backup.data.pages);
+        localStorage.setItem(ACTIVE_PAGE_STORAGE_KEY, String(backup.data.activePage));
+        window.location.reload();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'The workspace backup could not be restored.';
+        window.alert(message);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleImportCase = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const parsed = JSON.parse(content);
         if (parsed.events && Array.isArray(parsed.events)) {
+          const imageAssets: ExportedImageAsset[] = Array.isArray(parsed.imageAssets) ? parsed.imageAssets : [];
+          const requiredIds = imageIdsForCase(parsed as CaseFile);
+          if (requiredIds.some(id => !imageAssets.some(asset => asset.id === id))) {
+            throw new Error('This case export is missing an attached image. Import was cancelled.');
+          }
+          await importImageAssets(imageAssets);
+          delete parsed.imageAssets;
+          parsed.timeTags = Array.isArray(parsed.timeTags) ? parsed.timeTags : [];
           // Normalize legacy connections
           if (parsed.connections) {
             parsed.connections = parsed.connections.map((c: any) => ({
@@ -679,7 +641,9 @@ export default function App() {
           setCaseFile(parsed);
           soundEngine.playSweep(true);
         }
-      } catch (err) {}
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : 'Case import failed.');
+      }
     };
     reader.readAsText(file);
   };
@@ -808,10 +772,11 @@ export default function App() {
           </button>
         </div>
 
-        {/* Acoustic Hum Toggle */}
+        {/* Master sound toggle */}
         <div className="flex items-center space-x-2">
+          <button onClick={() => { setIsAiAutofillOpen(false); setIsBoardIntelligenceOpen(value => !value); }} className="flex items-center gap-1.5 rounded border border-emerald-500/40 bg-emerald-950/30 px-2 py-1 text-[10px] text-emerald-300 hover:border-emerald-400" title="Analyze board and chat with local Ollama"><Cpu className="w-3.5 h-3.5" /> ANALYZE / CHAT</button>
           <button
-            onClick={toggleSoundHum}
+            onClick={toggleSound}
             className={`px-2.5 py-1 ${palette.btnRadius} border transition-all flex items-center space-x-1.5 text-[10px] uppercase font-bold tracking-wider cursor-pointer ${
               acousticFeedback 
                 ? 'bg-black text-white shadow-sm' 
@@ -831,13 +796,15 @@ export default function App() {
       {/* 3. TIMELINE & GRID WORKSPACE TOOLBAR WITH LEGEND DROPDOWN & BLOOM CONTROLS */}
       <TimelineToolbar 
         theme={theme}
-        setTheme={handleSetTheme}
+        activePageIndex={activePageIndex}
+        pageTitles={pagesRef.current.map(page => page.caseFile.title)}
+        onSelectPage={switchProjectPage}
         gridConfig={gridConfig}
         setGridConfig={setGridConfig}
         colorConfig={colorConfig}
         setColorConfig={setColorConfig}
         acousticFeedback={acousticFeedback}
-        setAcousticFeedback={setAcousticFeedback}
+        onToggleSound={toggleSound}
         activeTool={activeTool}
         setActiveTool={setActiveTool}
         selectedIconToPlace={selectedIconToPlace}
@@ -856,6 +823,8 @@ export default function App() {
         onNewBlankCase={handleNewBlankCase}
         onExportCase={handleExportCase}
         onImportCase={handleImportCase}
+        onExportWorkspace={handleExportWorkspace}
+        onImportWorkspace={handleImportWorkspace}
         canUndo={past.length > 0}
         canRedo={future.length > 0}
         undoCount={past.length}
@@ -884,6 +853,7 @@ export default function App() {
           colorConfig={colorConfig}
           events={caseFile.events}
           connections={caseFile.connections}
+          timeTags={caseFile.timeTags ?? []}
           activeTool={activeTool}
           selectedIconToPlace={selectedIconToPlace}
           searchQuery={searchQuery}
@@ -897,6 +867,9 @@ export default function App() {
           onAddConnection={handleAddConnection}
           onDeleteEvent={handleDeleteEvent}
           onDeleteConnection={handleDeleteConnection}
+          onAddTimeTag={handleAddTimeTag}
+          onUpdateTimeTag={handleUpdateTimeTag}
+          onDeleteTimeTag={handleDeleteTimeTag}
           wheelZoomEnabled={wheelZoomEnabled}
           onToggleWheelZoom={handleToggleWheelZoom}
           canUndo={past.length > 0}
@@ -1018,6 +991,8 @@ export default function App() {
         lastImportedBatchId={lastImportedBatchId}
         activeFolderId={activeFolderId}
       />
+
+      <BoardIntelligencePanel isOpen={isBoardIntelligenceOpen} onClose={() => setIsBoardIntelligenceOpen(false)} caseFile={caseFile} theme={theme} soundEnabled={acousticFeedback} />
 
       {/* 11. CLEAN STATUS FOOTER */}
       <footer className="border-t border-slate-900 bg-black/95 px-4 py-1.5 text-center text-[10px] text-slate-500 flex flex-wrap items-center justify-between font-mono shrink-0">

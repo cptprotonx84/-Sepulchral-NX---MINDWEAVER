@@ -12,13 +12,17 @@ import {
   ToolMode,
   ColorGradingConfig,
   ProjectFolder,
+  FloatingTimeTag,
   NUMBER_KEY_COLORS,
   getNumberKeyColor,
   getStartingNodes
 } from '../types';
 import { THEME_PALETTES } from './TerminalOverlay';
 import { renderEventIcon } from './iconRegistry';
+import { NodeImage } from './NodeImage';
 import { soundEngine } from './SoundEngine';
+import { DisplayControls } from './DisplayControls';
+import { FloatingTimeTags } from './FloatingTimeTags';
 import { 
   Plus, 
   Link as LinkIcon, 
@@ -41,6 +45,7 @@ interface EventGridCanvasProps {
   colorConfig: ColorGradingConfig;
   events: TimelineEvent[];
   connections: EventConnection[];
+  timeTags: FloatingTimeTag[];
   activeTool: ToolMode;
   selectedIconToPlace: string;
   searchQuery: string;
@@ -54,6 +59,9 @@ interface EventGridCanvasProps {
   onAddConnection: (fromId: string, toId: string) => void;
   onDeleteEvent: (eventId: string) => void;
   onDeleteConnection: (connId: string) => void;
+  onAddTimeTag: (tag: FloatingTimeTag) => void;
+  onUpdateTimeTag: (id: string, changes: Partial<FloatingTimeTag>) => void;
+  onDeleteTimeTag: (id: string) => void;
   wheelZoomEnabled?: boolean;
   onToggleWheelZoom?: () => void;
   canUndo?: boolean;
@@ -71,6 +79,7 @@ export const EventGridCanvas: React.FC<EventGridCanvasProps> = ({
   colorConfig,
   events,
   connections,
+  timeTags,
   activeTool,
   selectedIconToPlace,
   searchQuery,
@@ -84,6 +93,9 @@ export const EventGridCanvas: React.FC<EventGridCanvasProps> = ({
   onAddConnection,
   onDeleteEvent,
   onDeleteConnection,
+  onAddTimeTag,
+  onUpdateTimeTag,
+  onDeleteTimeTag,
   wheelZoomEnabled: externalWheelZoomEnabled,
   onToggleWheelZoom,
   canUndo = false,
@@ -731,6 +743,18 @@ export const EventGridCanvas: React.FC<EventGridCanvasProps> = ({
 
       {/* Floating Canvas View Controls (Zoom / Pan / Reset / Mouse Wheel Toggle) */}
       <div className="absolute top-4 right-4 z-30 flex items-center space-x-1.5 bg-black/85 backdrop-blur-md p-1.5 rounded-lg border border-slate-800 shadow-2xl text-xs">
+        <DisplayControls />
+        <select aria-label="Board zoom preset" title="Board zoom preset" defaultValue="" onChange={event => {
+          const value = Number(event.target.value);
+          setZoom(value);
+          if (value === 1) setPan({x: 0, y: 0});
+        }} className="rounded border border-slate-700 bg-black px-1 py-1 text-[10px] text-slate-200">
+          <option value="" disabled>BOARD SIZE</option>
+          <option value="0.75">75% overview</option>
+          <option value="1">100% sharp</option>
+          <option value="1.25">125% large</option>
+          <option value="1.5">150% extra large</option>
+        </select>
         {/* Mouse Wheel Zoom Toggle Option Button */}
         <button
           onClick={handleToggleWheelZoomInternal}
@@ -1585,7 +1609,8 @@ export const EventGridCanvas: React.FC<EventGridCanvasProps> = ({
                 </div>
 
                 {/* Middle: Event Title */}
-                <div className="my-1 min-w-0">
+                <div className="my-1 min-w-0 flex items-center gap-1.5">
+                  {evt.imageId && <NodeImage imageId={evt.imageId} className="w-8 h-8 shrink-0 rounded object-cover border border-slate-600" />}
                   <h4 
                     className="text-xs font-bold text-slate-100 leading-snug line-clamp-2 group-hover:text-white transition-colors"
                     title={evt.title}
@@ -1647,6 +1672,9 @@ export const EventGridCanvas: React.FC<EventGridCanvasProps> = ({
           </div>
         )}
       </div>
+      <FloatingTimeTags tags={timeTags} zoom={zoom} pan={pan} accent={palette.primary}
+        containerRef={containerRef} onAdd={onAddTimeTag} onUpdate={onUpdateTimeTag}
+        onDelete={onDeleteTimeTag} />
     </div>
   );
 };

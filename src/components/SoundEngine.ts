@@ -9,7 +9,8 @@ class SoundEngine {
   private humOsc: OscillatorNode | null = null;
   private humGain: GainNode | null = null;
   private filter: BiquadFilterNode | null = null;
-  private volume: number = 0.2;
+  private volume: number = 0.12;
+  private enabled: boolean = false;
   private humEnabled: boolean = false;
 
   private init() {
@@ -19,7 +20,7 @@ class SoundEngine {
       if (!AudioCtx) return;
       this.ctx = new AudioCtx();
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = this.volume;
+      this.masterGain.gain.value = this.enabled ? this.volume : 0;
       this.masterGain.connect(this.ctx.destination);
     } catch (e) {
       console.warn('AudioContext not supported in this environment', e);
@@ -27,25 +28,41 @@ class SoundEngine {
   }
 
   setVolume(vol: number) {
-    this.volume = vol;
+    this.volume = Math.min(1, Math.max(0, vol));
     if (this.masterGain) {
-      this.masterGain.gain.value = vol;
+      this.masterGain.gain.value = this.enabled ? this.volume : 0;
     }
   }
 
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+    if (enabled) this.init();
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(enabled ? this.volume : 0, this.ctx.currentTime);
+    }
+    if (enabled && this.ctx?.state === 'suspended') void this.ctx.resume();
+    this.toggleAmbientHum(enabled);
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+
   playClick() {
+    if (!this.enabled) return;
     this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx) return;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.08);
+    osc.frequency.setValueAtTime(720, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(420, this.ctx.currentTime + 0.055);
 
-    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.16, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.055);
 
     osc.connect(gain);
     if (this.masterGain) {
@@ -53,64 +70,65 @@ class SoundEngine {
     }
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.09);
+    osc.stop(this.ctx.currentTime + 0.065);
   }
 
   playSwitch() {
+    if (!this.enabled) return;
     this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx) return;
 
-    // Simulate mechanical metallic click (two closely spaced clicks)
+    // Gentle two-tone confirmation rather than a sharp metallic snap.
     const t = this.ctx.currentTime;
     
-    // Low pop
+    // Low note
     const osc1 = this.ctx.createOscillator();
     const gain1 = this.ctx.createGain();
     osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(180, t);
-    gain1.gain.setValueAtTime(0.4, t);
-    gain1.gain.exponentialRampToValueAtTime(0.01, t + 0.04);
+    osc1.frequency.setValueAtTime(330, t);
+    gain1.gain.setValueAtTime(0.13, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
     osc1.connect(gain1);
     if (this.masterGain) gain1.connect(this.masterGain);
     osc1.start(t);
-    osc1.stop(t + 0.05);
+    osc1.stop(t + 0.085);
 
-    // High metal snap
+    // Higher answering note
     const osc2 = this.ctx.createOscillator();
     const gain2 = this.ctx.createGain();
-    osc2.type = 'triangle';
-    osc2.frequency.setValueAtTime(2400, t + 0.005);
-    osc2.frequency.exponentialRampToValueAtTime(400, t + 0.025);
-    gain2.gain.setValueAtTime(0.15, t + 0.005);
-    gain2.gain.exponentialRampToValueAtTime(0.01, t + 0.025);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(495, t + 0.045);
+    gain2.gain.setValueAtTime(0.1, t + 0.045);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
     osc2.connect(gain2);
     if (this.masterGain) gain2.connect(this.masterGain);
-    osc2.start(t + 0.005);
-    osc2.stop(t + 0.03);
+    osc2.start(t + 0.045);
+    osc2.stop(t + 0.13);
   }
 
   playSweep(up: boolean = true) {
+    if (!this.enabled) return;
     this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx) return;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sawtooth';
-    const startFreq = up ? 80 : 800;
-    const endFreq = up ? 600 : 40;
-    const duration = 0.45;
+    osc.type = 'triangle';
+    const startFreq = up ? 260 : 520;
+    const endFreq = up ? 520 : 260;
+    const duration = 0.18;
 
     osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + duration);
 
-    // Filter to make it smoother and more retro-future
+    // Keep the transition warm and brief.
     const lowpass = this.ctx.createBiquadFilter();
     lowpass.type = 'lowpass';
-    lowpass.frequency.setValueAtTime(1200, this.ctx.currentTime);
-    lowpass.Q.setValueAtTime(5, this.ctx.currentTime);
+    lowpass.frequency.setValueAtTime(900, this.ctx.currentTime);
+    lowpass.Q.setValueAtTime(0.7, this.ctx.currentTime);
 
-    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
 
     osc.connect(lowpass);
@@ -120,12 +138,13 @@ class SoundEngine {
     }
 
     osc.start();
-    osc.stop(this.ctx.currentTime + duration + 0.05);
+    osc.stop(this.ctx.currentTime + duration + 0.01);
   }
 
   playBeep(freq: number, duration: number = 0.1) {
+    if (!this.enabled) return;
     this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx) return;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -133,7 +152,7 @@ class SoundEngine {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
 
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
 
     osc.connect(gain);
@@ -146,81 +165,86 @@ class SoundEngine {
   }
 
   playUndo() {
+    if (!this.enabled) return;
     this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx) return;
 
-    // Fast downward tape-rewind chirp
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(700, t);
-    osc.frequency.exponentialRampToValueAtTime(220, t + 0.12);
-
-    gain.gain.setValueAtTime(0.2, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-
-    osc.connect(gain);
-    if (this.masterGain) gain.connect(this.masterGain);
-
-    osc.start(t);
-    osc.stop(t + 0.13);
-  }
-
-  playRedo() {
-    this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
-
-    // Upward forward chirp
+    // Soft downward cue.
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(260, t);
-    osc.frequency.exponentialRampToValueAtTime(820, t + 0.11);
+    osc.frequency.setValueAtTime(520, t);
+    osc.frequency.exponentialRampToValueAtTime(320, t + 0.13);
 
-    gain.gain.setValueAtTime(0.22, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
 
     osc.connect(gain);
     if (this.masterGain) gain.connect(this.masterGain);
 
     osc.start(t);
-    osc.stop(t + 0.12);
+    osc.stop(t + 0.14);
+  }
+
+  playRedo() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    // Soft upward cue.
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, t);
+    osc.frequency.exponentialRampToValueAtTime(520, t + 0.13);
+
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+
+    osc.connect(gain);
+    if (this.masterGain) gain.connect(this.masterGain);
+
+    osc.start(t);
+    osc.stop(t + 0.14);
   }
 
   playClear() {
+    if (!this.enabled) return;
     this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx) return;
 
-    // Retro CRT terminal degauss purge sweep
+    // Low, brief clear cue without the old abrasive sawtooth sweep.
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const filter = this.ctx.createBiquadFilter();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(320, t);
-    osc.frequency.exponentialRampToValueAtTime(45, t + 0.35);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(340, t);
+    osc.frequency.exponentialRampToValueAtTime(130, t + 0.24);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(800, t);
-    filter.frequency.exponentialRampToValueAtTime(100, t + 0.35);
+    filter.frequency.setValueAtTime(700, t);
+    filter.frequency.exponentialRampToValueAtTime(300, t + 0.24);
 
-    gain.gain.setValueAtTime(0.3, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    gain.gain.setValueAtTime(0.16, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
 
     osc.connect(filter);
     filter.connect(gain);
     if (this.masterGain) gain.connect(this.masterGain);
 
     osc.start(t);
-    osc.stop(t + 0.36);
+    osc.stop(t + 0.25);
   }
 
   toggleAmbientHum(enable: boolean) {
+    if (!enable && !this.ctx) return;
+    if (enable && !this.enabled) return;
     this.init();
     if (!this.ctx) return;
 
@@ -247,7 +271,7 @@ class SoundEngine {
       this.filter.frequency.setValueAtTime(150, t);
 
       this.humGain = this.ctx.createGain();
-      this.humGain.gain.setValueAtTime(0.08, t);
+      this.humGain.gain.setValueAtTime(0.035, t);
 
       // Low frequency LFO to sweep filter subtly
       const lfo = this.ctx.createOscillator();
@@ -295,15 +319,16 @@ class SoundEngine {
   }
 
   playDenied() {
+    if (!this.enabled) return;
     this.init();
-    if (!this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(140, t);
-    osc.frequency.setValueAtTime(110, t + 0.08);
-    gain.gain.setValueAtTime(0.25, t);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.setValueAtTime(165, t + 0.08);
+    gain.gain.setValueAtTime(0.13, t);
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
     osc.connect(gain);
     if (this.masterGain) gain.connect(this.masterGain);
